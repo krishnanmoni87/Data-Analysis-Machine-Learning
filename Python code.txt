@@ -1,0 +1,197 @@
+#Please note that this project code was inspired from https://www.kaggle.com/sanjames/liver-patients-analysis-prediction-accuracy/notebook
+#It has been modified as required and used below
+#I confirm that all the codes written below is functional and error-free
+
+#Loading all required libraries 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+%matplotlib inline
+from sklearn.preprocessing import LabelEncoder
+
+#Readng the dataset
+disease_df = pd.read_csv('C:/Users/len/Documents/Documents/Fundamentals and Advanced Machine Learning/indian_liver_patient.csv')
+
+#Retrieving first few rows of the dataset
+disease_df.head()
+
+#Finding out if there are any null values in the dataset
+disease_df.info()
+
+#Outputting summary statistics
+disease_df.describe()
+
+disease_df.columns
+
+disease_df.isnull().sum()
+
+sns.countplot(data=disease_df, x="Dataset", label="Count")
+Patient, NotPatient = disease_df["Dataset"].value_counts()
+print("Number of patients with liver disease: ", Patient)
+print("Number of patients with no liver disease: ", NotPatient)
+
+sns.countplot(data=disease_df, x="Gender", label="Count")
+Male, Female = disease_df["Gender"].value_counts()
+print("Number of male patients: ", Male)
+print("Number of female patients: ", Female)
+
+sns.factorplot(x="Age", y="Gender", hue="Dataset", data=disease_df)
+
+disease_df[["Gender", "Dataset", "Age"]].groupby(["Dataset", "Gender"], as_index=False).count().sort_values(by="Dataset", ascending=True)
+
+disease_df[["Gender", "Dataset", "Age"]].groupby(["Dataset", "Gender"], as_index=False).mean().sort_values(by="Dataset", ascending=True)
+
+gen = sns.FacetGrid(disease_df, col="Dataset", row="Gender", margin_titles=True)
+gen.map(plt.hist,"Age", color="green", alpha=1, bins=10, ec="black")
+plt.subplots_adjust(top=0.9)
+gen.fig.suptitle("Disease by Gender and Age")
+
+#Converting "Gender" categorical variable into indicator variable
+pd.get_dummies(disease_df['Gender'], prefix = 'Gender').head()
+
+disease_df = pd.concat([disease_df, pd.get_dummies(disease_df['Gender'], prefix = "Gender")], axis=1)
+disease_df.head()
+
+#Checking if the null values have been filled
+disease_df.loc[disease_df['Albumin_and_Globulin_Ratio'].isnull()]
+
+#Filling the null values with the mean value of the column
+disease_df["Albumin_and_Globulin_Ratio"] = disease_df.Albumin_and_Globulin_Ratio.fillna(disease_df['Albumin_and_Globulin_Ratio'].mean())
+
+#We want to use only the input variables and features that determine liver disease. So, we are dropping the columns "Gender (categorial variable) and "Dataset"
+x = disease_df.drop(["Gender","Dataset"], axis=1)
+x.head()
+
+features = x
+
+y = disease_df["Dataset"]
+
+#Analyzing the correlation between each variable
+disease_corr = x.corr()
+disease_corr
+
+#Plotting Correlation diagram between features
+plt.figure(figsize=(30,30))
+sns.heatmap(disease_corr, cbar=True, square = True, annot=True, fmt= '.2f', annot_kws={'size': 15}, cmap='YlGnBu')
+plt.title('Correlation between features')
+
+x.columns
+
+b = sns.FacetGrid(disease_df, col = "Gender", row = "Dataset", margin_titles = True)
+b.map(plt.scatter, "Direct_Bilirubin", "Total_Bilirubin", edgecolor = "w")
+plt.subplots_adjust(top=0.9)
+
+sns.pairplot(x)
+
+sns.jointplot("Total_Bilirubin", "Direct_Bilirubin", data=disease_df, kind="reg")
+
+b = sns.FacetGrid(disease_df, col = "Gender", row = "Dataset", margin_titles = True)
+b.map(plt.scatter, "Alkaline_Phosphotase", "Alamine_Aminotransferase", edgecolor = "w")
+plt.subplots_adjust(top=0.9)
+
+sns.jointplot("Alkaline_Phosphotase", "Alamine_Aminotransferase", data=disease_df, kind="reg")
+
+b = sns.FacetGrid(disease_df, col = "Gender", row = "Dataset", margin_titles = True)
+b.map(plt.scatter, "Total_Protiens", "Albumin", edgecolor = "w")
+plt.subplots_adjust(top=0.9)
+
+sns.jointplot("Total_Protiens", "Albumin", data=disease_df, kind="reg")
+
+b = sns.FacetGrid(disease_df, col = "Gender", row = "Dataset", margin_titles = True)
+b.map(plt.scatter, "Albumin", "Albumin_and_Globulin_Ratio", edgecolor = "w")
+plt.subplots_adjust(top=0.9)
+
+sns.jointplot("Albumin", "Albumin_and_Globulin_Ratio", data=disease_df, kind="reg")
+
+#Machine Learning part starts here
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.svm import SVC, LinearSVC
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, BaggingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
+
+x.head()
+
+X_train, X_test, y_train, y_test = train_test_split(x,y,test_size = 0.20, random_state=42)
+print(X_train.shape)
+print(y_train.shape)
+print(X_test.shape)
+print(y_test.shape)
+
+#Gaussian Naive Bayes
+gauss = GaussianNB()
+gauss.fit(X_train, y_train)
+gauss_predict = gauss.predict(X_test)
+gauss_train = round(gauss.score(X_train, y_train) * 100,2)
+gauss_test = round(gauss.score(X_test, y_test) * 100,2)
+
+print("GNB Train Score: ", gauss_train)
+print("GNB Test Score: ", gauss_test)
+print("Accuracy: \n", accuracy_score(y_test, gauss_predict))
+print(confusion_matrix(y_test, gauss_predict))
+print(classification_report(y_test, gauss_predict))
+sns.heatmap(confusion_matrix(y_test, gauss_predict), annot=True, fmt= "d")
+
+#Support Vector Machine
+svc = SVC()
+svc.fit(X_train, y_train)
+svc_prediction = svc.predict(X_test)
+svc_train = round(svc.score(X_train, y_train) * 100, 2)
+svc_test = round(svc.score(X_test, y_test) * 100, 2)
+print("SVM Train Score: ", svc_train)
+print("SVM Test Score: ", svc_test)
+print("Accuracy: \n", accuracy_score(y_test, svc_prediction))
+print(confusion_matrix(y_test, svc_prediction))
+print(classification_report(y_test, svc_prediction))
+sns.heatmap(confusion_matrix(y_test, svc_prediction), annot=True, fmt= "d")
+
+#KNN 
+knn = KNeighborsClassifier(n_neighbors = 3)
+knn.fit(X_train, y_train)
+knn_predict = knn.predict(X_test)
+knn_train = round(knn.score(X_train, y_train) * 100, 2)
+knn_test = round(knn.score(X_test, y_test) * 100, 2)
+print("KNN Train Score: ", knn_train)
+print("KNN Test Score: ", knn_test)
+print("Accuracy: ", accuracy_score(y_test, knn_predict))
+print(confusion_matrix(y_test, knn_predict))
+print(classification_report(y_test, knn_predict))
+sns.heatmap(confusion_matrix(y_test, knn_predict), annot=True, fmt= "d")
+
+#Decision Tree
+decision_tree = DecisionTreeClassifier()
+decision_tree.fit(X_train, y_train)
+dectree_predict = decision_tree.predict(X_test)
+dectree_train = round(decision_tree.score(X_train, y_train)* 100, 2)
+dectree_test = round(decision_tree.score(X_test, y_test)* 100, 2)
+print('Decision Tree Train Score: ', dectree_train)
+print('Decision Tree Test Score: ', dectree_test)
+print('Accuracy: ', accuracy_score(y_test,dectree_predict))
+print(confusion_matrix(y_test,dectree_predict))
+print(classification_report(y_test,dectree_predict))
+sns.heatmap(confusion_matrix(y_test, dectree_predict), annot=True, fmt= "d")
+
+# Random Forest
+random_forest = RandomForestClassifier(n_estimators=100)
+random_forest.fit(X_train, y_train)
+randforest_predict = random_forest.predict(X_test)
+randforest_train = round(random_forest.score(X_train, y_train) * 100, 2)
+randforest_test = round(random_forest.score(X_test, y_test) * 100, 2)
+print('Random Forest Train Score: ', randforest_train)
+print('Random Forest Test Score: ', randforest_test)
+print('Accuracy: ', accuracy_score(y_test,randforest_predict))
+print(confusion_matrix(y_test,randforest_predict))
+print(classification_report(y_test,randforest_predict))
+sns.heatmap(confusion_matrix(y_test, randforest_predict), annot=True, fmt= "d")
+
+#Model evaluation
+models = pd.DataFrame({
+    'Model': ['Support Vector Machine', 'KNeighborsClassifier', 'Gaussian Naive Bayes', 'Decision Tree', 'Random Forest'],
+    'Train Score': [svc_train, knn_train, gauss_train, dectree_train, randforest_train],
+    'Test Score': [svc_test, knn_test, gauss_test, dectree_test, randforest_test]
+})
+models.sort_values(by='Test Score', ascending=False)
